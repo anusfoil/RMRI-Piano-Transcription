@@ -20,11 +20,12 @@ import torch.utils.data
 from utilities import (create_folder, get_filename, create_logging, 
     StatisticsContainer, RegressionPostProcessor) 
 from data_generator import MaestroDataset, Augmentor, Sampler, TestSampler, collate_fn
-from models import Regress_onset_offset_frame_velocity_CRNN, Regress_pedal_CRNN
+from models import Regress_onset_offset_frame_velocity_CRNN, Regress_pedal_CRNN, Regress_pedal_velocity_CRNN
 from pytorch_utils import move_data_to_device
 from losses import get_loss_func
 from evaluate import SegmentEvaluator
 import config
+import crash
 
 
 def train(args):
@@ -211,7 +212,7 @@ def train(args):
             logging.info('    Train statistics: {}'.format(evaluate_train_statistics))
             logging.info('    Validation statistics: {}'.format(validate_statistics))
             logging.info('    Test statistics: {}'.format(test_statistics))
-
+ 
             statistics_container.append(iteration, evaluate_train_statistics, data_type='train')
             statistics_container.append(iteration, validate_statistics, data_type='validation')
             statistics_container.append(iteration, test_statistics, data_type='test')

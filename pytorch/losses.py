@@ -34,6 +34,19 @@ def regress_pedal_bce(model, output_dict, target_dict):
     total_loss = onset_pedal_loss + offset_pedal_loss + frame_pedal_loss
     return total_loss
 
+
+def regress_pedal_velocity(model, output_dict, target_dict):
+    """High-resolution piano pedal regression loss, including onset regression, 
+    offset regression, velocity regression and frame-wise classification losses.
+    """
+    onset_pedal_loss = F.binary_cross_entropy(output_dict['reg_pedal_onset_output'], target_dict['reg_pedal_onset_roll'][:, :, None])
+    offset_pedal_loss = F.binary_cross_entropy(output_dict['reg_pedal_offset_output'], target_dict['reg_pedal_offset_roll'][:, :, None])
+    frame_pedal_loss = F.binary_cross_entropy(output_dict['pedal_frame_output'], target_dict['pedal_frame_roll'][:, :, None])
+    velocity_pedal_loss = bce(output_dict['pedal_velocity_output'], target_dict['pedal_velocity_roll'][:, :, None] / 128, target_dict['pedal_onset_roll'][:, :, None])
+    total_loss = onset_pedal_loss + offset_pedal_loss + frame_pedal_loss + velocity_pedal_loss
+    return total_loss
+
+
 ############ Google's onsets and frames system loss ############
 def google_onset_offset_frame_velocity_bce(model, output_dict, target_dict):
     """Google's onsets and frames system piano note loss. Only used for comparison.
@@ -62,6 +75,9 @@ def get_loss_func(loss_type):
 
     elif loss_type == 'regress_pedal_bce':
         return regress_pedal_bce
+
+    elif loss_type == 'regress_pedal_velocity':
+        return regress_pedal_velocity
 
     elif loss_type == 'google_onset_offset_frame_velocity_bce':
         return google_onset_offset_frame_velocity_bce

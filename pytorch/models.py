@@ -145,8 +145,8 @@ class AcousticModelCRnn8Dropout(nn.Module):
         x = F.dropout(x, p=0.2, training=self.training)
 
         x = x.transpose(1, 2).flatten(2)
-        x = F.relu(self.bn5(self.fc5(x).transpose(1, 2)).transpose(1, 2))
-        x = F.dropout(x, p=0.5, training=self.training, inplace=True)
+        x = F.relu(self.bn5(self.fc5(x).transpose(1, 2)).transpose(1, 2), inplace=False)
+        x = F.dropout(x, p=0.5, training=self.training, inplace=False)
         
         (x, _) = self.gru(x)
         x = F.dropout(x, p=0.5, training=self.training, inplace=False)
@@ -258,6 +258,116 @@ class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
         return output_dict
 
 
+# new pedal regression with velocity. The only difference it has with the note
+# model is that the class_num is 1. (one pedal keys)
+class Regress_pedal_velocity_CRNN(nn.Module):
+    def __init__(self, frames_per_second, classes_num):
+        super(Regress_pedal_velocity_CRNN, self).__init__()
+
+        # only one class for the pedal estimation
+        classes_num = 1
+
+        sample_rate = 16000
+        window_size = 2048
+        hop_size = sample_rate // frames_per_second
+        mel_bins = 229
+        fmin = 30
+        fmax = sample_rate // 2
+
+        window = 'hann'
+        center = True
+        pad_mode = 'reflect'
+        ref = 1.0
+        amin = 1e-10
+        top_db = None
+
+        midfeat = 1792
+        momentum = 0.01
+
+        # Spectrogram extractor
+        self.spectrogram_extractor = Spectrogram(n_fft=window_size, 
+            hop_length=hop_size, win_length=window_size, window=window, 
+            center=center, pad_mode=pad_mode, freeze_parameters=True)
+
+        # Logmel feature extractor
+        self.logmel_extractor = LogmelFilterBank(sr=sample_rate, 
+            n_fft=window_size, n_mels=mel_bins, fmin=fmin, fmax=fmax, ref=ref, 
+            amin=amin, top_db=top_db, freeze_parameters=True)
+
+        self.bn0 = nn.BatchNorm2d(mel_bins, momentum)
+
+        self.frame_model = AcousticModelCRnn8Dropout(classes_num, midfeat, momentum)
+        self.reg_onset_model = AcousticModelCRnn8Dropout(classes_num, midfeat, momentum)
+        self.reg_offset_model = AcousticModelCRnn8Dropout(classes_num, midfeat, momentum)
+        self.velocity_model = AcousticModelCRnn8Dropout(classes_num, midfeat, momentum)
+
+        self.reg_onset_gru = nn.GRU(input_size=classes_num * 2, hidden_size=256, num_layers=1, 
+            bias=True, batch_first=True, dropout=0., bidirectional=True)
+        self.reg_onset_fc = nn.Linear(512, classes_num, bias=True)
+
+        self.frame_gru = nn.GRU(input_size=classes_num * 3, hidden_size=256, num_layers=1, 
+            bias=True, batch_first=True, dropout=0., bidirectional=True)
+        self.frame_fc = nn.Linear(512, classes_num, bias=True)
+
+        self.init_weight()
+
+    def init_weight(self):
+        init_bn(self.bn0)
+        init_gru(self.reg_onset_gru)
+        init_gru(self.frame_gru)
+        init_layer(self.reg_onset_fc)
+        init_layer(self.frame_fc)
+ 
+    def forward(self, input):
+        """
+        Args:
+          input: (batch_size, data_length)
+
+        Outputs:
+          output_dict: dict, {
+            'reg_onset_output': (batch_size, time_steps, classes_num),
+            'reg_offset_output': (batch_size, time_steps, classes_num),
+            'frame_output': (batch_size, time_steps, classes_num),
+            'velocity_output': (batch_size, time_steps, classes_num)
+          }
+        """
+
+        x = self.spectrogram_extractor(input)   # (batch_size, 1, time_steps, freq_bins)
+        x = self.logmel_extractor(x)    # (batch_size, 1, time_steps, mel_bins)
+
+        x = x.transpose(1, 3)
+        x = self.bn0(x)
+        x = x.transpose(1, 3)
+
+        frame_output = self.frame_model(x)  # (batch_size, time_steps, classes_num)
+        reg_onset_output = self.reg_onset_model(x)  # (batch_size, time_steps, classes_num)
+        reg_offset_output = self.reg_offset_model(x)    # (batch_size, time_steps, classes_num)
+        velocity_output = self.velocity_model(x)    # (batch_size, time_steps, classes_num)
+ 
+        # Use velocities to condition onset regression
+        x = torch.cat((reg_onset_output, (reg_onset_output ** 0.5) * velocity_output.detach()), dim=2)
+        (x, _) = self.reg_onset_gru(x)
+        x = F.dropout(x, p=0.5, training=self.training, inplace=False)
+        reg_onset_output = torch.sigmoid(self.reg_onset_fc(x))
+        """(batch_size, time_steps, classes_num)"""
+
+        # Use onsets and offsets to condition frame-wise classification
+        x = torch.cat((frame_output, reg_onset_output.detach(), reg_offset_output.detach()), dim=2)
+        (x, _) = self.frame_gru(x)
+        x = F.dropout(x, p=0.5, training=self.training, inplace=False)
+        frame_output = torch.sigmoid(self.frame_fc(x))  # (batch_size, time_steps, classes_num)
+        """(batch_size, time_steps, classes_num)"""
+
+        output_dict = {
+            'reg_pedal_onset_output': reg_onset_output, 
+            'reg_pedal_offset_output': reg_offset_output, 
+            'pedal_frame_output': frame_output, 
+            'pedal_velocity_output': velocity_output}
+
+        return output_dict
+
+
+# unused if the pedal velocity CRNN is used. 
 class Regress_pedal_CRNN(nn.Module):
     def __init__(self, frames_per_second, classes_num):
         super(Regress_pedal_CRNN, self).__init__()
@@ -355,3 +465,7 @@ class Note_pedal(nn.Module):
         full_output_dict.update(note_output_dict)
         full_output_dict.update(pedal_output_dict)
         return full_output_dict
+
+
+
+

@@ -68,7 +68,8 @@ class MaestroDataset(object):
             'pedal_offset_roll': (frames_num,), 
             'reg_pedal_onset_roll': (frames_num,), 
             'reg_pedal_offset_roll': (frames_num,), 
-            'pedal_frame_roll': (frames_num,)}
+            'pedal_frame_roll': (frames_num,),
+            'pedal_velocity_roll': (frames_num,)}
         """
         [year, hdf5_name, start_time] = meta
         hdf5_path = os.path.join(self.hdf5s_dir, year, hdf5_name)

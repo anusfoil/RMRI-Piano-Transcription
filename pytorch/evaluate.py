@@ -101,6 +101,12 @@ class SegmentEvaluator(object):
                 output_dict['pedal_frame_roll'].flatten(), 
                 mask=None)
 
+        if 'pedal_velocity_output' in output_dict.keys():
+            statistics['pedal_velocity_mae'] = mae(
+                output_dict['pedal_velocity_output'].flatten(), 
+                output_dict['pedal_velocity_roll'].flatten() / 128, 
+                mask=None)
+
         for key in statistics.keys():
             statistics[key] = np.around(statistics[key], decimals=4)
 

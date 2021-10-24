@@ -136,7 +136,7 @@ def read_midi(midi_path):
       midi_dict: dict, e.g. {
         'midi_event': [
             'program_change channel=0 program=0 time=0', 
-            'control_change channel=0 control=64 value=127 time=0', 
+            'control_change channel=0 value=127 time=0', 
             'control_change channel=0 control=64 value=63 time=236', 
             ...],
         'midi_event_time': [0., 0, 0.98307292, ...]}
@@ -261,7 +261,8 @@ class TargetProcessor(object):
             'pedal_offset_roll': (frames_num,), 
             'reg_pedal_onset_roll': (frames_num,), 
             'reg_pedal_offset_roll': (frames_num,), 
-            'pedal_frame_roll': (frames_num,)}
+            'pedal_frame_roll': (frames_num,),
+            'pedal_velocity_roll': (frames_num,)}
 
           note_events: list of dict, e.g. [
             {'midi_note': 51, 'onset_time': 696.64, 'offset_time': 697.00, 'velocity': 44}, 
@@ -341,14 +342,18 @@ class TargetProcessor(object):
                 attribute_list: ['control_change', 'channel=0', 'control=64', 'value=45', 'time=43']"""
 
                 ped_value = int(attribute_list[3].split('=')[1])
-                if ped_value >= 64:
+                """filter ped_value above 10 in case we have unintentional pedalling 
+                with the pianists's feet """
+                if ped_value >= 10:
                     if 'onset_time' not in pedal_dict:
                         pedal_dict['onset_time'] = midi_events_time[i]
+                        pedal_dict['velocity'] = ped_value
                 else:
                     if 'onset_time' in pedal_dict:
                         pedal_events.append({
                             'onset_time': pedal_dict['onset_time'], 
-                            'offset_time': midi_events_time[i]})
+                            'offset_time': midi_events_time[i],
+                            'velocity': pedal_dict['velocity']})
                         pedal_dict = {}
 
         # Add unpaired onsets to events
@@ -363,7 +368,8 @@ class TargetProcessor(object):
         if 'onset_time' in pedal_dict.keys():
             pedal_events.append({
                 'onset_time': pedal_dict['onset_time'], 
-                'offset_time': start_time + self.segment_seconds})
+                'offset_time': start_time + self.segment_seconds,
+                'velocity': pedal_dict['velocity']})
 
         # Set notes to ON until pedal is released
         if extend_pedal:
@@ -385,6 +391,7 @@ class TargetProcessor(object):
         reg_pedal_onset_roll = np.ones(frames_num)
         reg_pedal_offset_roll = np.ones(frames_num)
         pedal_frame_roll = np.zeros(frames_num)
+        pedal_velocity_roll = np.zeros(frames_num)
 
         # ------ 2. Get note targets ------
         # Process note events to target
@@ -441,6 +448,8 @@ class TargetProcessor(object):
                 pedal_frame_roll[max(bgn_frame, 0) : fin_frame + 1] = 1
 
                 pedal_offset_roll[fin_frame] = 1
+                velocity_roll[max(bgn_frame, 0) : fin_frame + 1] = pedal_event['velocity']
+
                 reg_pedal_offset_roll[fin_frame] = \
                     (pedal_event['offset_time'] - start_time) - (fin_frame / self.frames_per_second)
 
@@ -454,12 +463,19 @@ class TargetProcessor(object):
         reg_pedal_offset_roll = self.get_regression(reg_pedal_offset_roll)
 
         target_dict = {
-            'onset_roll': onset_roll, 'offset_roll': offset_roll,
-            'reg_onset_roll': reg_onset_roll, 'reg_offset_roll': reg_offset_roll,
-            'frame_roll': frame_roll, 'velocity_roll': velocity_roll, 
-            'mask_roll': mask_roll, 'reg_pedal_onset_roll': reg_pedal_onset_roll, 
-            'pedal_onset_roll': pedal_onset_roll, 'pedal_offset_roll': pedal_offset_roll, 
-            'reg_pedal_offset_roll': reg_pedal_offset_roll, 'pedal_frame_roll': pedal_frame_roll
+            'onset_roll': onset_roll, 
+            'offset_roll': offset_roll,
+            'reg_onset_roll': reg_onset_roll, 
+            'reg_offset_roll': reg_offset_roll,
+            'frame_roll': frame_roll, 
+            'velocity_roll': velocity_roll, 
+            'mask_roll': mask_roll, 
+            'reg_pedal_onset_roll': reg_pedal_onset_roll, 
+            'reg_pedal_offset_roll': reg_pedal_offset_roll, 
+            'pedal_onset_roll': pedal_onset_roll, 
+            'pedal_offset_roll': pedal_offset_roll, 
+            'pedal_frame_roll': pedal_frame_roll,
+            'pedal_velocity_roll': pedal_velocity_roll
             }
 
         return target_dict, note_events, pedal_events
