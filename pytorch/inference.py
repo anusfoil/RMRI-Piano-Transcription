@@ -11,10 +11,11 @@ import logging
 import matplotlib.pyplot as plt
 
 import torch
+import crash
  
 from utilities import (create_folder, get_filename, RegressionPostProcessor, 
     OnsetsFramesPostProcessor, write_events_to_midi, load_audio)
-from models import Note_pedal
+from models import Note_pedal, Regress_pedal_velocity_CRNN
 from pytorch_utils import move_data_to_device, forward
 import config
 
@@ -100,9 +101,11 @@ class PianoTranscription(object):
           'reg_offset_output': (segment_frames, classes_num), 
           'frame_output': (segment_frames, classes_num), 
           'velocity_output': (segment_frames, classes_num), 
-          'reg_pedal_onset_output': (segment_frames, 1), 
-          'reg_pedal_offset_output': (segment_frames, 1), 
-          'pedal_frame_output': (segment_frames, 1)}"""
+          'reg_pedal_onset_output': (segment_frames, pedal_classes_num), 
+          'reg_pedal_offset_output': (segment_frames, pedal_classes_num), 
+          'pedal_frame_output': (segment_frames, pedal_classes_num)}，
+          'pedal_velocity_output': (segment_frames, pedal_classes_num)}
+          """
 
         # Post processor
         if self.post_processor_type == 'regression':

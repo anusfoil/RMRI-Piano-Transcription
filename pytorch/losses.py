@@ -39,11 +39,11 @@ def regress_pedal_velocity(model, output_dict, target_dict):
     """High-resolution piano pedal regression loss, including onset regression, 
     offset regression, velocity regression and frame-wise classification losses.
     """
-    onset_pedal_loss = F.binary_cross_entropy(output_dict['reg_pedal_onset_output'], target_dict['reg_pedal_onset_roll'][:, :, None])
-    offset_pedal_loss = F.binary_cross_entropy(output_dict['reg_pedal_offset_output'], target_dict['reg_pedal_offset_roll'][:, :, None])
-    frame_pedal_loss = F.binary_cross_entropy(output_dict['pedal_frame_output'], target_dict['pedal_frame_roll'][:, :, None])
-    velocity_pedal_loss = bce(output_dict['pedal_velocity_output'], target_dict['pedal_velocity_roll'][:, :, None] / 128, target_dict['pedal_onset_roll'][:, :, None])
-    total_loss = onset_pedal_loss + offset_pedal_loss + frame_pedal_loss + velocity_pedal_loss
+    onset_pedal_loss = F.binary_cross_entropy(output_dict['reg_pedal_onset_output'], target_dict['reg_pedal_onset_roll'])
+    offset_pedal_loss = F.binary_cross_entropy(output_dict['reg_pedal_offset_output'], target_dict['reg_pedal_offset_roll'])
+    frame_pedal_loss = F.binary_cross_entropy(output_dict['pedal_frame_output'], target_dict['pedal_frame_roll'])
+    velocity_pedal_loss = F.binary_cross_entropy(output_dict['pedal_velocity_output'], target_dict['pedal_velocity_roll'] / 128)
+    total_loss = onset_pedal_loss + offset_pedal_loss + frame_pedal_loss + velocity_pedal_loss 
     return total_loss
 
 

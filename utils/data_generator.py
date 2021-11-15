@@ -36,13 +36,14 @@ class MaestroDataset(object):
         self.max_note_shift = max_note_shift
         self.begin_note = config.begin_note
         self.classes_num = config.classes_num
+        self.pedal_classes_num = config.pedal_classes_num
         self.segment_samples = int(self.sample_rate * self.segment_seconds)
         self.augmentor = augmentor
 
         self.random_state = np.random.RandomState(1234)
 
         self.target_processor = TargetProcessor(self.segment_seconds, 
-            self.frames_per_second, self.begin_note, self.classes_num)
+            self.frames_per_second, self.begin_note, self.classes_num, self.pedal_classes_num)
         """Used for processing MIDI events to target."""
 
     def __getitem__(self, meta):

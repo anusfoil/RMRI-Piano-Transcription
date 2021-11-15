@@ -214,7 +214,7 @@ def read_maps_midi(midi_path):
 
 class TargetProcessor(object):
     def __init__(self, segment_seconds, frames_per_second, begin_note, 
-        classes_num):
+        classes_num, pedal_classes_num):
         """Class for processing MIDI events to target.
 
         Args:
@@ -227,6 +227,7 @@ class TargetProcessor(object):
         self.frames_per_second = frames_per_second
         self.begin_note = begin_note
         self.classes_num = classes_num
+        self.pedal_classes_num = pedal_classes_num
         self.max_piano_note = self.classes_num - 1
 
     def process(self, start_time, midi_events_time, midi_events, 
@@ -257,12 +258,12 @@ class TargetProcessor(object):
             'frame_roll': (frames_num, classes_num), 
             'velocity_roll': (frames_num, classes_num), 
             'mask_roll':  (frames_num, classes_num), 
-            'pedal_onset_roll': (frames_num,), 
-            'pedal_offset_roll': (frames_num,), 
-            'reg_pedal_onset_roll': (frames_num,), 
-            'reg_pedal_offset_roll': (frames_num,), 
-            'pedal_frame_roll': (frames_num,),
-            'pedal_velocity_roll': (frames_num,)}
+            'pedal_onset_roll': (frames_num, pedal_classes_num),
+            'pedal_offset_roll': (frames_num, pedal_classes_num), 
+            'reg_pedal_onset_roll': (frames_num, pedal_classes_num),
+            'reg_pedal_offset_roll': (frames_num, pedal_classes_num), 
+            'pedal_frame_roll': (frames_num, pedal_classes_num),
+            'pedal_velocity_roll': (frames_num, pedal_classes_num)}
 
           note_events: list of dict, e.g. [
             {'midi_note': 51, 'onset_time': 696.64, 'offset_time': 697.00, 'velocity': 44}, 
@@ -337,20 +338,26 @@ class TargetProcessor(object):
                         del buffer_dict[midi_note]
 
             # Pedal
-            elif attribute_list[0] == 'control_change' and attribute_list[2] == 'control=64':
-                """control=64 corresponds to pedal MIDI event. E.g. 
+            elif attribute_list[0] == 'control_change' and attribute_list[2] in [
+                    'control=64', 'control=66', 'control=67']:
+                """control=64 corresponds to sustain pedal MIDI event. 
+                and control=66 corresponds to sostenuto pedal
+                and control=67 corresponds to soft pedal E.g. 
                 attribute_list: ['control_change', 'channel=0', 'control=64', 'value=45', 'time=43']"""
 
+                ped_type = attribute_list[2].split('=')[1]
                 ped_value = int(attribute_list[3].split('=')[1])
                 """filter ped_value above 10 in case we have unintentional pedalling 
                 with the pianists's feet """
                 if ped_value >= 10:
                     if 'onset_time' not in pedal_dict:
+                        pedal_dict['pedal_type'] = ped_type
                         pedal_dict['onset_time'] = midi_events_time[i]
                         pedal_dict['velocity'] = ped_value
                 else:
                     if 'onset_time' in pedal_dict:
                         pedal_events.append({
+                            'pedal_type': pedal_dict['pedal_type'], 
                             'onset_time': pedal_dict['onset_time'], 
                             'offset_time': midi_events_time[i],
                             'velocity': pedal_dict['velocity']})
@@ -367,6 +374,7 @@ class TargetProcessor(object):
         # Add unpaired pedal onsets to data
         if 'onset_time' in pedal_dict.keys():
             pedal_events.append({
+                'pedal_type': pedal_dict['pedal_type'], 
                 'onset_time': pedal_dict['onset_time'], 
                 'offset_time': start_time + self.segment_seconds,
                 'velocity': pedal_dict['velocity']})
@@ -386,12 +394,12 @@ class TargetProcessor(object):
         mask_roll = np.ones((frames_num, self.classes_num))
         """mask_roll is used for masking out cross segment notes"""
 
-        pedal_onset_roll = np.zeros(frames_num)
-        pedal_offset_roll = np.zeros(frames_num)
-        reg_pedal_onset_roll = np.ones(frames_num)
-        reg_pedal_offset_roll = np.ones(frames_num)
-        pedal_frame_roll = np.zeros(frames_num)
-        pedal_velocity_roll = np.zeros(frames_num)
+        pedal_onset_roll = np.zeros((frames_num, self.pedal_classes_num))
+        pedal_offset_roll = np.zeros((frames_num, self.pedal_classes_num))
+        reg_pedal_onset_roll = np.ones((frames_num, self.pedal_classes_num))
+        reg_pedal_offset_roll = np.ones((frames_num, self.pedal_classes_num))
+        pedal_frame_roll = np.zeros((frames_num, self.pedal_classes_num))
+        pedal_velocity_roll = np.zeros((frames_num, self.pedal_classes_num))
 
         # ------ 2. Get note targets ------
         # Process note events to target
@@ -443,24 +451,27 @@ class TargetProcessor(object):
         for pedal_event in pedal_events:
             bgn_frame = int(round((pedal_event['onset_time'] - start_time) * self.frames_per_second))
             fin_frame = int(round((pedal_event['offset_time'] - start_time) * self.frames_per_second))
+            # pedal_index = config.pedal_map[pedal_event['pedal_type']]
+            pedal_index = 0
 
             if fin_frame >= 0:
-                pedal_frame_roll[max(bgn_frame, 0) : fin_frame + 1] = 1
+                pedal_frame_roll[max(bgn_frame, 0) : fin_frame + 1, pedal_index] = 1
 
-                pedal_offset_roll[fin_frame] = 1
-                velocity_roll[max(bgn_frame, 0) : fin_frame + 1] = pedal_event['velocity']
+                pedal_offset_roll[fin_frame, pedal_index] = 1
+                pedal_velocity_roll[max(bgn_frame, 0) : fin_frame + 1, pedal_index] = pedal_event['velocity']
 
-                reg_pedal_offset_roll[fin_frame] = \
+                reg_pedal_offset_roll[fin_frame, pedal_index] = \
                     (pedal_event['offset_time'] - start_time) - (fin_frame / self.frames_per_second)
 
                 if bgn_frame >= 0:
-                    pedal_onset_roll[bgn_frame] = 1
-                    reg_pedal_onset_roll[bgn_frame] = \
+                    pedal_onset_roll[bgn_frame, pedal_index] = 1
+                    reg_pedal_onset_roll[bgn_frame, pedal_index] = \
                         (pedal_event['onset_time'] - start_time) - (bgn_frame / self.frames_per_second)
 
-        # Get regresssion padal targets
-        reg_pedal_onset_roll = self.get_regression(reg_pedal_onset_roll)
-        reg_pedal_offset_roll = self.get_regression(reg_pedal_offset_roll)
+        for k in range(self.pedal_classes_num):
+            """Get pedal regression targets"""
+            reg_pedal_onset_roll[:, k] = self.get_regression(reg_pedal_onset_roll[:, k])
+            reg_pedal_offset_roll[:, k] = self.get_regression(reg_pedal_offset_roll[:, k])
 
         target_dict = {
             'onset_roll': onset_roll, 
@@ -513,7 +524,8 @@ class TargetProcessor(object):
 
                 # If a note offset is between the onset and offset of a pedal, 
                 # Then set the note offset to when the pedal is released.
-                if pedal_event['onset_time'] < note_event['offset_time'] < pedal_event['offset_time']:
+                if pedal_event['pedal_type'] == "64" and (
+                    pedal_event['onset_time'] < note_event['offset_time'] < pedal_event['offset_time']):
                     
                     midi_note = note_event['midi_note']
 
@@ -624,7 +636,7 @@ def write_events_to_midi(start_time, note_events, pedal_events, midi_path):
 
     if pedal_events:
         for pedal_event in pedal_events:
-            message_roll.append({'time': pedal_event['onset_time'], 'control_change': 64, 'value': 127})
+            message_roll.append({'time': pedal_event['onset_time'], 'control_change': 64, 'value': pedal_event['velocity']})
             message_roll.append({'time': pedal_event['offset_time'], 'control_change': 64, 'value': 0})
 
     # Sort MIDI messages by time
@@ -745,9 +757,10 @@ class RegressionPostProcessor(object):
             'reg_offset_output': (segment_frames, classes_num), 
             'frame_output': (segment_frames, classes_num), 
             'velocity_output': (segment_frames, classes_num), 
-            'reg_pedal_onset_output': (segment_frames, 1), 
-            'reg_pedal_offset_output': (segment_frames, 1), 
-            'pedal_frame_output': (segment_frames, 1)}
+            'reg_pedal_onset_output': (segment_frames, pedal_classes_num), 
+            'reg_pedal_offset_output': (segment_frames, pedal_classes_num), 
+            'pedal_frame_output': (segment_frames, pedal_classes_num),
+            'pedal_velocity_output': (segment_frames, pedal_classes_num)}
 
         Outputs:
           est_note_events: list of dict, e.g. [
@@ -755,15 +768,15 @@ class RegressionPostProcessor(object):
             {'onset_time': 11.98, 'offset_time': 12.11, 'midi_note': 33, 'velocity': 88}]
 
           est_pedal_events: list of dict, e.g. [
-            {'onset_time': 0.17, 'offset_time': 0.96}, 
-            {'osnet_time': 1.17, 'offset_time': 2.65}]
+            {'onset_time': 0.17, 'offset_time': 0.96, velocity: 100}, 
+            {'osnet_time': 1.17, 'offset_time': 2.65, velocity: 77}]
         """
 
         # Post process piano note outputs to piano note and pedal events information
         (est_on_off_note_vels, est_pedal_on_offs) = \
             self.output_dict_to_note_pedal_arrays(output_dict)
         """est_on_off_note_vels: (events_num, 4), the four columns are: [onset_time, offset_time, piano_note, velocity], 
-        est_pedal_on_offs: (pedal_events_num, 2), the two columns are: [onset_time, offset_time]"""
+        est_pedal_on_offs: (pedal_events_num, 3), the two columns are: [onset_time, offset_time, ped_velocity]"""
 
         # Reformat notes to MIDI events
         est_note_events = self.detected_notes_to_events(est_on_off_note_vels)
@@ -794,10 +807,10 @@ class RegressionPostProcessor(object):
              [11.98, 12.11, 33, 0.69], 
              ...]
 
-          est_pedal_on_offs: (pedal_events_num, 2), the 2 columns are onset_time 
-            and offset_time. E.g. [
-             [0.17, 0.96], 
-             [1.17, 2.65], 
+          est_pedal_on_offs: (pedal_events_num, 3), the 3 columns are onset_time 
+            and offset_time, velocity. E.g. [
+             [0.17, 0.96, 0.87], 
+             [1.17, 2.65, 0.76], 
              ...]
         """
 
@@ -984,18 +997,21 @@ class RegressionPostProcessor(object):
             frame_output=output_dict['pedal_frame_output'][:, 0], 
             offset_output=output_dict['pedal_offset_output'][:, 0], 
             offset_shift_output=output_dict['pedal_offset_shift_output'][:, 0], 
+            velocity_output=output_dict['pedal_velocity_output'][:, 0], 
             frame_threshold=0.5)
 
         est_tuples = np.array(est_tuples)
-        """(notes, 2), the two columns are pedal onsets and pedal offsets"""
-        
+        """(notes, 5), the five columns are onset, offset, onset_shift, 
+        offset_shift and normalized_velocity"""
+
         if len(est_tuples) == 0:
             return np.array([])
 
         else:
             onset_times = (est_tuples[:, 0] + est_tuples[:, 2]) / self.frames_per_second
             offset_times = (est_tuples[:, 1] + est_tuples[:, 3]) / self.frames_per_second
-            est_on_off = np.stack((onset_times, offset_times), axis=-1)
+            velocities = est_tuples[:, 4]
+            est_on_off = np.stack((onset_times, offset_times, velocities), axis=-1)
             est_on_off = est_on_off.astype(np.float32)
             return est_on_off
 
@@ -1029,23 +1045,24 @@ class RegressionPostProcessor(object):
         """Reformat detected pedal onset and offsets to events.
 
         Args:
-          pedal_on_offs: (notes, 2), the two columns are pedal onsets and pedal
-          offsets. E.g., 
-            [[0.1800, 0.9669],
-             [1.1400, 2.6458],
+          pedal_on_offs: (notes, 3), the columns are pedal onsets and pedal
+          offsets, nomalized_velocities. E.g., 
+            [[0.1800, 0.9669, 0.7831],
+             [1.1400, 2.6458, 0.3565],
              ...]
 
         Returns:
           pedal_events: list of dict, e.g.,
-            [{'onset_time': 0.1800, 'offset_time': 0.9669}, 
-             {'onset_time': 1.1400, 'offset_time': 2.6458},
+            [{'onset_time': 0.1800, 'offset_time': 0.9669, 'velociy': 78}, 
+             {'onset_time': 1.1400, 'offset_time': 2.6458, 'velocity': 88},
              ...]
         """
         pedal_events = []
         for i in range(len(pedal_on_offs)):
             pedal_events.append({
                 'onset_time': pedal_on_offs[i, 0], 
-                'offset_time': pedal_on_offs[i, 1]})
+                'offset_time': pedal_on_offs[i, 1],
+                'velocity': int(pedal_on_offs[i][2] * self.velocity_scale)})
         
         return pedal_events
 

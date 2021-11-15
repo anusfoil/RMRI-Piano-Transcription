@@ -12,7 +12,7 @@ from sklearn import metrics
 
 from pytorch_utils import forward_dataloader
 
-
+# mean absolute error
 def mae(target, output, mask):
     if mask is None:
         return np.mean(np.abs(target - output))

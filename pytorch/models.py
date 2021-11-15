@@ -264,7 +264,7 @@ class Regress_pedal_velocity_CRNN(nn.Module):
     def __init__(self, frames_per_second, classes_num):
         super(Regress_pedal_velocity_CRNN, self).__init__()
 
-        # only one class for the pedal estimation
+        # 3 class for the pedal estimation
         classes_num = 1
 
         sample_rate = 16000
@@ -451,7 +451,7 @@ class Note_pedal(nn.Module):
         super(Note_pedal, self).__init__()
 
         self.note_model = Regress_onset_offset_frame_velocity_CRNN(frames_per_second, classes_num)
-        self.pedal_model = Regress_pedal_CRNN(frames_per_second, classes_num)
+        self.pedal_model = Regress_pedal_velocity_CRNN(frames_per_second, classes_num)
 
     def load_state_dict(self, m, strict=False):
         self.note_model.load_state_dict(m['note_model'], strict=strict)

@@ -76,20 +76,21 @@ def note_detection_with_onset_offset_regress(frame_output, onset_output,
 
 
 def pedal_detection_with_onset_offset_regress(frame_output, offset_output, 
-    offset_shift_output, frame_threshold):
+    offset_shift_output, velocity_output, frame_threshold):
     """Process prediction array to pedal events information.
     
     Args:
       frame_output: (frames_num,)
       offset_output: (frames_num,)
       offset_shift_output: (frames_num,)
+      velocity_output: (frames_num,)
       frame_threshold: float
 
     Returns: 
-      output_tuples: list of [bgn, fin, onset_shift, offset_shift], 
+      output_tuples: list of [bgn, fin, onset_shift, offset_shift, normalized_velocity], 
       e.g., [
-        [1821, 1909, 0.4749851, 0.3048533], 
-        [1909, 1947, 0.30730522, -0.45764327], 
+        [1821, 1909, 0.4749851, 0.3048533, 0.72119445], 
+        [1909, 1947, 0.30730522, -0.45764327, 0.64200014], 
         ...]
     """
     output_tuples = []
@@ -117,13 +118,13 @@ def pedal_detection_with_onset_offset_regress(frame_output, offset_output,
 
             if offset_occur:
                 fin = offset_occur
-                output_tuples.append([bgn, fin, 0., offset_shift_output[fin]])
+                output_tuples.append([bgn, fin, 0., offset_shift_output[fin], velocity_output[bgn]])
                 bgn, frame_disappear, offset_occur = None, None, None
 
             if frame_disappear and i - frame_disappear >= 10:
                 """offset not detected but frame disappear"""
                 fin = frame_disappear
-                output_tuples.append([bgn, fin, 0., offset_shift_output[fin]])
+                output_tuples.append([bgn, fin, 0., offset_shift_output[fin], velocity_output[bgn]])
                 bgn, frame_disappear, offset_occur = None, None, None
 
     # Sort pairs by onsets
