@@ -65,12 +65,12 @@ class MaestroDataset(object):
             'frame_roll': (frames_num, classes_num), 
             'velocity_roll': (frames_num, classes_num), 
             'mask_roll':  (frames_num, classes_num), 
-            'pedal_onset_roll': (frames_num,), 
-            'pedal_offset_roll': (frames_num,), 
-            'reg_pedal_onset_roll': (frames_num,), 
-            'reg_pedal_offset_roll': (frames_num,), 
-            'pedal_frame_roll': (frames_num,),
-            'pedal_velocity_roll': (frames_num,)}
+            'pedal_onset_roll': (frames_num,pedal_classes_num), 
+            'pedal_offset_roll': (frames_num,pedal_classes_num), 
+            'reg_pedal_onset_roll': (frames_num,pedal_classes_num), 
+            'reg_pedal_offset_roll': (frames_num,pedal_classes_num), 
+            'pedal_frame_roll': (frames_num,pedal_classes_num),
+            'pedal_velocity_roll': (frames_num,pedal_classes_num)}
         """
         [year, hdf5_name, start_time] = meta
         hdf5_path = os.path.join(self.hdf5s_dir, year, hdf5_name)

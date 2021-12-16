@@ -88,7 +88,10 @@ def forward(model, x, batch_size):
       output_dict: dict, e.g. {
         'frame_output': (segments_num, frames_num, classes_num),
         'onset_output': (segments_num, frames_num, classes_num),
-        ...}
+        ...
+        'velocity': (...),
+        'pedel_frames...',
+        'pedal_velocity': ()}
     """
     
     output_dict = {}

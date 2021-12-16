@@ -153,7 +153,7 @@ class AcousticModelCRnn8Dropout(nn.Module):
         output = torch.sigmoid(self.fc(x))
         return output
 
-
+# for predicting 88 notes
 class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
     def __init__(self, frames_per_second, classes_num):
         super(Regress_onset_offset_frame_velocity_CRNN, self).__init__()
@@ -257,7 +257,7 @@ class Regress_onset_offset_frame_velocity_CRNN(nn.Module):
 
         return output_dict
 
-
+# new, I added
 # new pedal regression with velocity. The only difference it has with the note
 # model is that the class_num is 1. (one pedal keys)
 class Regress_pedal_velocity_CRNN(nn.Module):
@@ -265,7 +265,7 @@ class Regress_pedal_velocity_CRNN(nn.Module):
         super(Regress_pedal_velocity_CRNN, self).__init__()
 
         # 3 class for the pedal estimation
-        classes_num = 1
+        classes_num = 3
 
         sample_rate = 16000
         window_size = 2048
@@ -367,7 +367,7 @@ class Regress_pedal_velocity_CRNN(nn.Module):
         return output_dict
 
 
-# unused if the pedal velocity CRNN is used. 
+# unused if the pedal_velocity_CRNN is used. 
 class Regress_pedal_CRNN(nn.Module):
     def __init__(self, frames_per_second, classes_num):
         super(Regress_pedal_CRNN, self).__init__()
@@ -405,6 +405,8 @@ class Regress_pedal_CRNN(nn.Module):
         self.reg_pedal_offset_model = AcousticModelCRnn8Dropout(1, midfeat, momentum)
         self.reg_pedal_frame_model = AcousticModelCRnn8Dropout(1, midfeat, momentum)
         
+        # ...nothing here
+
         self.init_weight()
 
     def init_weight(self):

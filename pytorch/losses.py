@@ -23,7 +23,7 @@ def regress_onset_offset_frame_velocity_bce(model, output_dict, target_dict):
     total_loss = onset_loss + offset_loss + frame_loss + velocity_loss
     return total_loss
 
-
+# unused pedal loss after we have the next function
 def regress_pedal_bce(model, output_dict, target_dict):
     """High-resolution piano pedal regression loss, including pedal onset 
     regression, pedal offset regression and pedal frame-wise classification losses.

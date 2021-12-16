@@ -89,7 +89,7 @@ class PianoTranscription(object):
         segments = self.enframe(audio, self.segment_samples)
         """(N, segment_samples)"""
 
-        # Forward
+        # Forward: where everything happens
         output_dict = forward(self.model, segments, batch_size=1)
         """{'reg_onset_output': (N, segment_frames, classes_num), ...}"""
 

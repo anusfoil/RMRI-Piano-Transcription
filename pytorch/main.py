@@ -125,6 +125,7 @@ def train(args):
         segment_seconds=segment_seconds, frames_per_second=frames_per_second, 
         max_note_shift=0)
 
+
     # Sampler for training
     train_sampler = Sampler(hdf5s_dir=hdf5s_dir, split='train', 
         segment_seconds=segment_seconds, hop_seconds=hop_seconds, 

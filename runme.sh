@@ -3,9 +3,10 @@
 # ============ Inference using pretrained model ============
 # Download checkpoint and inference
 # CHECKPOINT_PATH="CRNN_note_F1=0.9677_pedal_F1=0.9186.pth"
+CHECKPOINT_PATH="workspace/test_full_3pedals.pth"
 # # wget -O $CHECKPOINT_PATH "https://zenodo.org/record/4034264/files/CRNN_note_F1%3D0.9677_pedal_F1%3D0.9186.pth?download=1"
-# MODEL_TYPE="Note_pedal"
-# python pytorch/inference.py --model_type=$MODEL_TYPE --checkpoint_path=$CHECKPOINT_PATH --audio_path='resources/cut_liszt.mp3' --cuda
+MODEL_TYPE="Note_pedal"
+python pytorch/inference.py --model_type=$MODEL_TYPE --checkpoint_path=$CHECKPOINT_PATH --audio_path='resources/cut_liszt.mp3' --cuda
 
 # ============ Train piano transcription system from scratch ============
 # MAESTRO dataset directory. Users need to download MAESTRO dataset into this folder.
@@ -27,10 +28,10 @@ WORKSPACE="./workspace"
 
 # --- 3. Combine the note and pedal models ---
 # Users should copy and rename the following paths to their trained model paths
-NOTE_CHECKPOINT_PATH="workspace/note_model.pth"
-PEDAL_CHECKPOINT_PATH="workspace/240000_iterations.pth"
-NOTE_PEDAL_CHECKPOINT_PATH="test_full.pth"
-python pytorch/combine_note_and_pedal_models.py --note_checkpoint_path=$NOTE_CHECKPOINT_PATH --pedal_checkpoint_path=$PEDAL_CHECKPOINT_PATH --output_checkpoint_path=$NOTE_PEDAL_CHECKPOINT_PATH
+# NOTE_CHECKPOINT_PATH="workspace/note_model.pth"
+# PEDAL_CHECKPOINT_PATH="workspace/40000_iterations.pth"
+# NOTE_PEDAL_CHECKPOINT_PATH="workspace/test_full_3pedals.pth"
+# python pytorch/combine_note_and_pedal_models.py --note_checkpoint_path=$NOTE_CHECKPOINT_PATH --pedal_checkpoint_path=$PEDAL_CHECKPOINT_PATH --output_checkpoint_path=$NOTE_PEDAL_CHECKPOINT_PATH
 
 # ============ Evaluate (optional) ============
 # Inference probability for evaluation

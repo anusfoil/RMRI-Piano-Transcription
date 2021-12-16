@@ -101,6 +101,7 @@ class SegmentEvaluator(object):
                 output_dict['pedal_frame_roll'].flatten(), 
                 mask=None)
 
+        # addded... shouldn't be changed...?
         if 'pedal_velocity_output' in output_dict.keys():
             statistics['pedal_velocity_mae'] = mae(
                 output_dict['pedal_velocity_output'].flatten(), 
